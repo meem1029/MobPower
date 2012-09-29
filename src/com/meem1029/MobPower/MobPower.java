@@ -3,7 +3,9 @@ package com.meem1029.MobPower;
 import java.util.logging.Logger;
 
 import org.bukkit.Location;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -39,17 +41,33 @@ public class MobPower extends JavaPlugin implements Listener{
 		Entity mob = e.getDamager();
 		Entity victim = e.getEntity();
 		int oldDamage = e.getDamage();
-		if(! (mob instanceof Player)){
+		if((checkDamager(mob))){
 			double multiplier = damageEquation.getValue(getDistance(mob.getLocation()));
 			int newDamage = (int) (oldDamage * multiplier);
+			//log.info("Turned " + oldDamage + " into " + newDamage);
 			oldDamage = newDamage;//To allow the next part to work off of the same damage value.
 			e.setDamage(newDamage);
 		}
 		if(! (victim instanceof Player)){
 			double multiplier = healthEquation.getValue(getDistance(victim.getLocation()));
 			int newDamage = (int) (oldDamage / multiplier);
+			//log.info("Turned " + oldDamage + " into " + newDamage);
 			e.setDamage(newDamage);
 		}
+	}
+	
+	//checks if the damager is a player. Returns false if it is and true if it's not.
+	private boolean checkDamager(Entity e){
+		if(e instanceof Player){
+			return false;
+		}
+		if(e instanceof Arrow){
+			Arrow a = (Arrow) e;
+			if(a.getShooter() instanceof Player){
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	
