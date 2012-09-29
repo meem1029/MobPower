@@ -96,8 +96,8 @@ public class MobPower extends JavaPlugin implements Listener{
  	*/
 	
 	private double getDistance(Location l){
-		int x = l.getBlockX();
-		int z = l.getBlockZ();
+		int x = Math.abs(l.getBlockX());
+		int z = Math.abs(l.getBlockZ());
 		return Math.max(x,z);
 	}
 	
