@@ -12,6 +12,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -31,8 +32,8 @@ public class MobPower extends JavaPlugin implements Listener{
 	
 	//Will read from a config file in the future. For now due to time, they're hard coded.
 	private void getEquations(){
-		healthEquation = new LinearEquation(2000,1,1800,3.5);
-		damageEquation = new LinearEquation(2000,0,1600,1);
+		healthEquation = new LinearEquation(2000,1,0,26);
+		damageEquation = new LinearEquation(2000,0,0,5);
 	}
 	
 	// Damage Changing
@@ -50,10 +51,20 @@ public class MobPower extends JavaPlugin implements Listener{
 		}
 		if(! (victim instanceof Player)){
 			double multiplier = healthEquation.getValue(getDistance(victim.getLocation()));
-			int newDamage = (int) (oldDamage / multiplier);
+			int newDamage = Math.max((int) (oldDamage / multiplier),1);
 			//log.info("Turned " + oldDamage + " into " + newDamage);
 			e.setDamage(newDamage);
 		}
+	}
+	
+	@EventHandler
+	public void onPlayerMove(PlayerMoveEvent e){
+		if(getLevel(e.getTo()) - getLevel(e.getFrom()) != 0){
+			e.getPlayer().sendMessage("You just entered zone " + getLevel(e.getTo()) + ".");
+		}
+	}
+	private int getLevel(Location l){
+		return (int) Math.floor((2000 - getDistance(l))/200);
 	}
 	
 	//checks if the damager is a player. Returns false if it is and true if it's not.
