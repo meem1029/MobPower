@@ -38,15 +38,23 @@ public class MobPower extends JavaPlugin implements Listener{
 	public void onMobDamage(EntityDamageByEntityEvent e){
 		Entity mob = e.getDamager();
 		Entity victim = e.getEntity();
-		if(mob instanceof Player){
-			return;
-		}
 		int oldDamage = e.getDamage();
-		double multiplier = damageEquation.getValue(getDistance(mob.getLocation()));
-		int newDamage = (int) (oldDamage * multiplier);
-		e.setDamage(newDamage);
+		if(! (mob instanceof Player)){
+			double multiplier = damageEquation.getValue(getDistance(mob.getLocation()));
+			int newDamage = (int) (oldDamage * multiplier);
+			oldDamage = newDamage;//To allow the next part to work off of the same damage value.
+			e.setDamage(newDamage);
+		}
+		if(! (victim instanceof Player)){
+			double multiplier = healthEquation.getValue(getDistance(victim.getLocation()));
+			int newDamage = (int) (oldDamage / multiplier);
+			e.setDamage(newDamage);
+		}
 	}
 	
+	
+	/*
+	 * I want to keep this in case I figure out a way around bukkits 20 max health...
 	// Health Changing
 	@EventHandler
 	public void onMobSpawn(CreatureSpawnEvent e){
@@ -56,6 +64,7 @@ public class MobPower extends JavaPlugin implements Listener{
 		int newHealth = Math.max((int) (oldHealth * multiplier), 1);
 		mob.setHealth(newHealth);
  	}
+ 	*/
 	
 	private double getDistance(Location l){
 		int x = l.getBlockX();
