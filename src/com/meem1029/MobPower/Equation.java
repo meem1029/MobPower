@@ -1,6 +1,6 @@
 package com.meem1029.MobPower;
 
-public interface Equation {
-	public double getValue(double x);
+public interface Equation<T> {
+	public T getValue(double x);
 
 }
