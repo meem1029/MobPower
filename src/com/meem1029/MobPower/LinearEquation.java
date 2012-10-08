@@ -24,6 +24,14 @@ public class LinearEquation implements Equation<Double> {
 		this.max = max;
 	}
 	
+	public void setMax(double max){
+		this.max = max;
+	}
+	
+	public void setMin(double min){
+		this.min = min;
+	}
+	
 	public Double getValue(double x){
 		double val = Double.valueOf(y1 + m * (x-x1));
 		return Math.max(min,Math.min(max, val));

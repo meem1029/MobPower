@@ -23,6 +23,14 @@ public class DropEquation implements Equation<ItemStack> {
 		this.mat = mat;
 	}
 	
+	public void setMin(double min){
+		howMany.setMin(min);
+	}
+	
+	public void setMax(double max){
+		howMany.setMax(max);
+	}
+	
 	public ItemStack getValue(double x){
 		double num = howMany.getValue(x);
 		int n = (int) Math.floor(num);

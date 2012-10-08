@@ -1,0 +1,28 @@
+# Each of the equations is of the form x1 y1 x2 y2.
+# Also (for now at least) material and data must be in the form of a number.
+# All equations are in terms of zones, except for the zone equation.
+# If you want to use coordinates instead of zones, use the following zone equation:
+# Zones: 0 0 1 1
+Zones:
+  Equation: 2000 1 0 101
+  Min: 0
+  Max: 100
+Health: 
+  Equation: 1 0 101 2
+Damage: 
+  Equation: 1 0 101 3
+  Max: 2.5 # levels off the max towards the center.
+Drops:
+  All:
+    ExpBottle:
+      Equation: 1 0 101 1
+      Item: 384
+  Creeper:
+    Apple:
+      Equation: 1 .1 2 .1 
+      Item: 322 #Just an example. 10% chance to drop a golden apple anywhere on creeper death.
+    Potion:  
+      Equation: 1 0 51 .1
+      Item: 373 98
+      Max: .1
+      # Gives up to 10% chance for creepers to drop an extended slowness 2 potion.

@@ -10,6 +10,8 @@ import java.util.logging.Logger;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -17,7 +19,6 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -29,6 +30,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class MobPower extends JavaPlugin implements Listener{
 
 	private Logger log;
+	private FileConfiguration config;
+	
 	private Equation<Double> healthEquation;
 	private Equation<Double> damageEquation;
 	private Equation<Double> zoneEquation;
@@ -40,6 +43,15 @@ public class MobPower extends JavaPlugin implements Listener{
 	private boolean replaceDrops = false;
 	private final int infinity = 10000;
 	
+	//Config variables.
+	private String equationName = "Equation";
+	private String zoneName = "Zone";
+	private String healthName = "Health";
+	private String damageName = "Damage";
+	private String dropName = "Drops";
+	private String minName = "Min";
+	private String maxName = "Max";
+	private String itemName = "Item";
 	
 	public void onEnable(){
 		PluginManager pm = getServer().getPluginManager();
@@ -49,12 +61,56 @@ public class MobPower extends JavaPlugin implements Listener{
 		healthMap = new HashMap<UUID,Integer>();
 	}
 	
-	//Will read from a config file in the future. For now due to time, they're hard coded.
+	//Will read from a config file in the future. For now due to time, they're hard coded.4
 	private void getEquations(){
-		healthEquation = new LinearEquation(1,0,11,3);
-		damageEquation = new LinearEquation(1,0,11,5);
-		zoneEquation = new LinearEquation(2000,1,0,11);
+		try{
+			zoneEquation = getEquation(zoneName);
+		}
+		catch(IllegalArgumentException x){
+			log.info("Not enough arguments for the zone function!");
+		}
+		try{
+			healthEquation = getEquation(healthName);
+		}
+		catch(IllegalArgumentException x){
+			log.info("Not enough arguments for the health function!");
+		}
+		try{
+			damageEquation = getEquation(damageName);
+		}
+		catch(IllegalArgumentException x){
+			log.info("Not enough arguments for the damage function!");
+		}
 		setDropMap();
+	}
+	
+	//Gets the Equation at the location specified in the config by the given string.
+	private Equation<Double> getEquation(String base){
+		Equation<Double> res = parseEquation(config.getDoubleList(base + "." + equationName));
+		double min = config.getDouble(base + "." + minName);
+		double max = config.getDouble(base + "." + maxName);
+		if(((Double) min) !=  null){
+			res.setMin(min);
+		}
+		if(((Double) max) != null){
+			res.setMax(max);
+		}
+		return res;
+	}
+	
+	private Equation<Double> parseEquation(List<Double> vals){
+		Double[] arr = {};
+		arr = vals.toArray(arr);
+		int size = arr.length;
+		if(size < 4){
+			throw new IllegalArgumentException("Not enough values in list.");
+		}
+		if(size >= 6){
+			return new LinearEquation(arr[0],arr[1],arr[2],arr[3],arr[4],arr[5]);
+		}
+		else{
+			return new LinearEquation(arr[0],arr[1],arr[2],arr[3]);
+		}
 	}
 	
 	private void setDropMap(){
@@ -63,18 +119,44 @@ public class MobPower extends JavaPlugin implements Listener{
 		for(EntityType et:EntityType.values()){
 			dropMap.put(et,new HashSet<DropEquation>());
 		}
-		//dropMap.get(EntityType.UNKNOWN).add(new DropEquation(1,0,11,2.5,new MaterialData(Material.EXP_BOTTLE)));
-		//dropMap.get(EntityType.SKELETON).add(new DropEquation(1,0,11,2.5,new MaterialData(Material.GREEN_RECORD)));
-		addItem(EntityType.UNKNOWN,Material.EXP_BOTTLE);
-		addItem(EntityType.SHEEP,Material.RAW_BEEF,1,.5,11,1);//Just an example of what you can do. Drops almost certainly at the center, 50% at edges. 
+		ConfigurationSection dropConfig = config.getConfigurationSection(dropName);
+		for(String s:dropConfig.getKeys(false)){
+			String mob = getMobName(s);
+			EntityType mobType = EntityType.fromName(mob);
+			if(mob.equalsIgnoreCase("All")){
+				mobType = EntityType.UNKNOWN;
+			}
+			for(String path:config.getConfigurationSection(s).getKeys(false)){
+				getDropEquation(path,mobType);
+			}
+		} 
 	}
 	
+	private DropEquation getDropEquation(String path, EntityType mob){
+		Equation<Double> eq = getEquation(path);
+		Integer[] material = {};
+		material = config.getIntegerList(path + "." + itemName).toArray(material);
+		if(material.length == 1){
+			return new DropEquation(eq,new MaterialData(material[0]));
+		}
+		else{
+			return new DropEquation(eq,new MaterialData(material[0],material[1].byteValue()));
+		}
+	}
+	
+	//Takes a yaml string identifier and extracts the last from it.
+	private String getMobName(String s){
+		String[] parts = s.split(".");
+		return parts[parts.length - 1];
+	}
+	
+	/*
 	private void addItem(EntityType et, Material mat, double x1, double y1, double x2, double y2){
 		dropMap.get(et).add(new DropEquation(x1,y1,x2,y2,new MaterialData(mat)));
 	}
 	private void addItem(EntityType et, Material mat){
 		addItem(et,mat,1,0,11,2);
-	}
+	}*/
 	
 	// Damage/Health Changing
 	@EventHandler
@@ -210,37 +292,8 @@ public class MobPower extends JavaPlugin implements Listener{
         
         if(noLongerLivingEntity.getKiller()!=null){
         
-            killer =noLongerLivingEntity.getKiller().getName();
+            killer = noLongerLivingEntity.getKiller().getName();
             
-            /* You can't switch on a String... Perhaps this has changed in Java 7, but backwards compatibility is good. /me glares at Sat.
-             * Anyway, for this purpose it's useless since we can just convert the string to all lower case.
-             switch(corpseType.getName()){
-             
-                    
-                case "Creeper": mob = "creeper";
-                break;
-                case "Skeleton": mob = "skeleton";
-                break;
-                case "Spider": mob = "spider";
-                break;
-                case "Zombie": mob = "zombie";
-                break;
-                case "Enderman": mob = "enderman";
-                break;
-                case "Cavespider": mob = "cavespider";
-                break;
-                case "Pig": mob = "pig";
-                break;
-                case "Sheep": mob = "sheep";
-                break;
-                case "Cow": mob = "cow";
-                break;
-                case "Chicken": mob = "chicken";
-                break;
-                case "Wolf": mob = "wolf";
-                break;
-            }
-            */
             mob = corpseType.getName().toLowerCase();    
             message = "A level "+zone+" "+mob+" has been killed by " + killer;
         
