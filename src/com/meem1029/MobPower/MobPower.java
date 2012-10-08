@@ -1,6 +1,5 @@
 package com.meem1029.MobPower;
 
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,7 +13,6 @@ import org.bukkit.Material;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -35,6 +33,7 @@ public class MobPower extends JavaPlugin implements Listener{
 	private Equation<Double> damageEquation;
 	private Equation<Double> zoneEquation;
 	private Map<UUID,Integer> healthMap;
+	private Map<UUID,Double> damageMap;
 	private Map<EntityType,Set<DropEquation>> dropMap;//Note: The EntityType UNKNOWN will be applied to all drops.
 	
 	private boolean deathBroadcastEnabled = true;
@@ -77,7 +76,7 @@ public class MobPower extends JavaPlugin implements Listener{
 		addItem(et,mat,1,0,11,2);
 	}
 	
-	// Damage Changing
+	// Damage/Health Changing
 	@EventHandler
 	public void onMobDamage(EntityDamageByEntityEvent e){
 		Entity mob = e.getDamager();
@@ -89,7 +88,18 @@ public class MobPower extends JavaPlugin implements Listener{
 			return;
 		}
 		if(! (isHumanCausedDamage(mob))){
-			double multiplier = damageEquation.getValue(getDistance(mob.getLocation()));
+			if(mob instanceof Arrow){
+				mob = ((Arrow)mob).getShooter();
+			}
+			UUID mobId = mob.getUniqueId();
+			double multiplier;
+			try{
+				multiplier = damageMap.get(mobId);
+			}
+			catch(NullPointerException x){
+				multiplier = damageEquation.getValue(getDistance(mob.getLocation()));
+				damageMap.put(mobId, multiplier);
+			}
 			int oldDamage = e.getDamage();
 			int newDamage = (int) (oldDamage * multiplier);
 			//log.info("Turned " + oldDamage + " into " + newDamage);
@@ -102,8 +112,8 @@ public class MobPower extends JavaPlugin implements Listener{
 				health = healthMap.get(mobId);
 			}
 			catch(NullPointerException x){
-				health = victim.getHealth();
-				healthMap.put(mobId,health);
+				setHealth(victim);
+				health = healthMap.get(mobId);
 			}
 			int damage = e.getDamage();
 			int newHealth = health - damage;
@@ -136,16 +146,14 @@ public class MobPower extends JavaPlugin implements Listener{
 		return false;
 	}
 	
-	// Health Changing
-	@EventHandler
-	public void onMobSpawn(CreatureSpawnEvent e){
-		LivingEntity mob = e.getEntity();
+	
+	private void setHealth(LivingEntity mob){
 		int oldHealth = mob.getHealth();
-		double multiplier = healthEquation.getValue(getZone(e.getLocation()));
+		double multiplier = healthEquation.getValue(getZone(mob.getLocation()));
 		int newHealth = Math.max((int) (oldHealth * multiplier), 1);
 		UUID mobId = mob.getUniqueId();
 		healthMap.put(mobId,newHealth);
- 	}
+	}
 	
 	//Drop Handling
 	@EventHandler
@@ -155,6 +163,7 @@ public class MobPower extends JavaPlugin implements Listener{
 		UUID mobId = victim.getUniqueId();
 		Location sceneOfTheCrime = victim.getLocation();
 		healthMap.remove(mobId);
+		damageMap.remove(mobId);
 		
 		
 		if(deathBroadcastEnabled){
