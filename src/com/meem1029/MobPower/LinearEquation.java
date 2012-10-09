@@ -7,13 +7,15 @@ public class LinearEquation implements Equation<Double> {
 	private double m;
 	private double min;
 	private double max;
+	private static double MAX = Double.MAX_VALUE;
+	private static double MIN = -MAX;
 	
 	public LinearEquation(double x1, double y1, double x2, double y2){
 		this.x1 = x1;
 		this.y1 = y1;
 		this.m = (y2 - y1)/(x2-x1);
-		this.min = -Double.MAX_VALUE;
-		this.max = Double.MAX_VALUE;
+		this.min = MIN;
+		this.max = MAX;
 	}
 	
 	public LinearEquation(double x1, double y1, double x2, double y2, double min, double max){
@@ -22,6 +24,10 @@ public class LinearEquation implements Equation<Double> {
 		this.m = (y2 - y1)/(x2-x1);
 		this.min = min;
 		this.max = max;
+	}
+	
+	public String toString(){
+		return "Linear Equation with x1 of " + x1 +", y1 of " + y1 +", slope of "+m+", min of "+ min +", and max of " + max;
 	}
 	
 	public void setMax(double max){

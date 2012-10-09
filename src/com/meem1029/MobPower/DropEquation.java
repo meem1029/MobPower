@@ -7,6 +7,7 @@ public class DropEquation implements Equation<ItemStack> {
 
 	private Equation<Double> howMany;
 	private MaterialData mat;
+	private static ItemStack empty = new ItemStack(0,0);
 	
 	public DropEquation(double x1, double y1, double x2, double y2, MaterialData mat){
 		howMany = new LinearEquation(x1,y1,x2,y2);
@@ -36,6 +37,9 @@ public class DropEquation implements Equation<ItemStack> {
 		int n = (int) Math.floor(num);
 		if(Math.random() < (num - n)){
 			n++;
+		}
+		if(n <= 0){
+			return empty;
 		}
 		return mat.toItemStack(n);
 	}

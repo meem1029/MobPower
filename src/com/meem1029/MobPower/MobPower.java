@@ -1,5 +1,6 @@
 package com.meem1029.MobPower;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,23 +43,30 @@ public class MobPower extends JavaPlugin implements Listener{
 	private boolean deathBroadcastEnabled = true;
 	private boolean replaceDrops = false;
 	private final int infinity = 10000;
+	private boolean debug = false;
 	
 	//Config variables.
 	private String equationName = "Equation";
-	private String zoneName = "Zone";
+	private String zoneName = "Zones";
 	private String healthName = "Health";
 	private String damageName = "Damage";
 	private String dropName = "Drops";
+	private String dropNamesName = "Names";
+	private String dropMobsName = "Mobs";
 	private String minName = "Min";
 	private String maxName = "Max";
-	private String itemName = "Item";
+	private String dropItemName = "Item";
 	
 	public void onEnable(){
 		PluginManager pm = getServer().getPluginManager();
 		pm.registerEvents(this,this);
+		
 		log = Logger.getLogger("Minecraft");
+		
+		this.config = getConfig();
 		this.getEquations();
 		healthMap = new HashMap<UUID,Integer>();
+		damageMap = new HashMap<UUID,Double>();
 	}
 	
 	//Will read from a config file in the future. For now due to time, they're hard coded.4
@@ -82,18 +90,37 @@ public class MobPower extends JavaPlugin implements Listener{
 			log.info("Not enough arguments for the damage function!");
 		}
 		setDropMap();
+		//log.info(zoneEquation.toString());
+		//log.info(healthEquation.toString());
+		//log.info(damageEquation.toString());
+		//log.info(dropMap.toString());
 	}
 	
 	//Gets the Equation at the location specified in the config by the given string.
 	private Equation<Double> getEquation(String base){
-		Equation<Double> res = parseEquation(config.getDoubleList(base + "." + equationName));
-		double min = config.getDouble(base + "." + minName);
-		double max = config.getDouble(base + "." + maxName);
-		if(((Double) min) !=  null){
-			res.setMin(min);
+		String configName = base + "." + equationName;
+		//log.info(configName);
+		Equation<Double> res = parseEquation(splitToDoubles(config.get(configName)));
+		if(config.isSet(base + "." + minName)){
+			res.setMin(config.getDouble(base + "." + minName));
 		}
-		if(((Double) max) != null){
-			res.setMax(max);
+		if(config.isSet(base + "." + maxName)){
+			res.setMax(config.getDouble(base + "." + maxName));
+		}
+		return res;
+	}
+	
+	private List<Double> splitToDoubles(Object o){
+		if(!(o instanceof String)){
+			log.info("GRRRRRRRR");
+			log.info((String) o);
+			log.info(o.getClass().toString());
+		}
+		String s = (String) o;
+		String[] arr = s.split("\\s+");
+		List<Double> res = new ArrayList<Double>();
+		for(int i = 0;i<arr.length;i++){
+			res.add(Double.valueOf(arr[i]));
 		}
 		return res;
 	}
@@ -102,6 +129,7 @@ public class MobPower extends JavaPlugin implements Listener{
 		Double[] arr = {};
 		arr = vals.toArray(arr);
 		int size = arr.length;
+		//log.info("Parsing new equation of size "+size);
 		if(size < 4){
 			throw new IllegalArgumentException("Not enough values in list.");
 		}
@@ -119,25 +147,32 @@ public class MobPower extends JavaPlugin implements Listener{
 		for(EntityType et:EntityType.values()){
 			dropMap.put(et,new HashSet<DropEquation>());
 		}
-		ConfigurationSection dropConfig = config.getConfigurationSection(dropName);
-		for(String s:dropConfig.getKeys(false)){
-			String mob = getMobName(s);
-			EntityType mobType = EntityType.fromName(mob);
-			if(mob.equalsIgnoreCase("All")){
-				mobType = EntityType.UNKNOWN;
+		List<String> names = config.getStringList(dropName + "." + dropNamesName);
+		for(String s:names){
+			if(debug){
+				log.info(s);
 			}
-			for(String path:config.getConfigurationSection(s).getKeys(false)){
-				getDropEquation(path,mobType);
+			List<String> mobs = config.getStringList(dropName + "." + s + "." + dropMobsName);
+			DropEquation equation = getDropEquation(dropName + "." + s);
+			for(String m: mobs){
+				EntityType mobType = EntityType.fromName(m);
+				if(m.equalsIgnoreCase("All")){
+					mobType = EntityType.UNKNOWN;
+				}
+				dropMap.get(mobType).add(equation);
 			}
 		} 
 	}
 	
-	private DropEquation getDropEquation(String path, EntityType mob){
+	private DropEquation getDropEquation(String path){
 		Equation<Double> eq = getEquation(path);
 		Integer[] material = {};
-		material = config.getIntegerList(path + "." + itemName).toArray(material);
+		material = config.getIntegerList(path + "." + dropItemName).toArray(material);
 		if(material.length == 1){
 			return new DropEquation(eq,new MaterialData(material[0]));
+		}
+		else if(material.length == 0){
+			return new DropEquation(eq,new MaterialData(config.getInt(path + "." + dropItemName)));
 		}
 		else{
 			return new DropEquation(eq,new MaterialData(material[0],material[1].byteValue()));
@@ -150,13 +185,13 @@ public class MobPower extends JavaPlugin implements Listener{
 		return parts[parts.length - 1];
 	}
 	
-	/*
+	//For manually adding items for when I want to kill the config.
 	private void addItem(EntityType et, Material mat, double x1, double y1, double x2, double y2){
 		dropMap.get(et).add(new DropEquation(x1,y1,x2,y2,new MaterialData(mat)));
 	}
 	private void addItem(EntityType et, Material mat){
 		addItem(et,mat,1,0,11,2);
-	}*/
+	}
 	
 	// Damage/Health Changing
 	@EventHandler
@@ -184,7 +219,6 @@ public class MobPower extends JavaPlugin implements Listener{
 			}
 			int oldDamage = e.getDamage();
 			int newDamage = (int) (oldDamage * multiplier);
-			//log.info("Turned " + oldDamage + " into " + newDamage);
 			e.setDamage(newDamage);
 		}
 		if(! (victim instanceof Player)){
@@ -211,7 +245,7 @@ public class MobPower extends JavaPlugin implements Listener{
 	
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent e){
-		if(getZone(e.getTo()) - getZone(e.getFrom()) != 0){
+		if((getZone(e.getTo()) - getZone(e.getFrom()) != 0)&& (getZone(e.getTo()) % 10 == 0)){
 			e.getPlayer().sendMessage("You just entered zone " + getZone(e.getTo()) + ".");
 		}
 	}
@@ -234,6 +268,10 @@ public class MobPower extends JavaPlugin implements Listener{
 		double multiplier = healthEquation.getValue(getZone(mob.getLocation()));
 		int newHealth = Math.max((int) (oldHealth * multiplier), 1);
 		UUID mobId = mob.getUniqueId();
+		if(debug){
+			log.info(" Mob is in zone "+ getZone(mob.getLocation()));
+			log.info("Giving "+ mobId.toString() + " health going from " + oldHealth + " to " + newHealth + " with a multiplier of " + multiplier + ".");
+		}
 		healthMap.put(mobId,newHealth);
 	}
 	
@@ -269,11 +307,15 @@ public class MobPower extends JavaPlugin implements Listener{
 			items.clear();
 		}
 		for(DropEquation eq: dropMap.get(EntityType.UNKNOWN)){
-			log.info("giving item");
+			if(debug){
+				log.info("giving item");
+			}
 			items.add(eq.getValue(location));
 		}
 		for(DropEquation eq: dropMap.get(mobType)){
-			log.info("adding item");
+			if(debug){
+				log.info("adding item");
+			}
 			items.add(eq.getValue(location));
 		}
 		return items;
